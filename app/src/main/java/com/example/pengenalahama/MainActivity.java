@@ -1,6 +1,7 @@
 package com.example.pengenalahama;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
@@ -34,6 +35,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -63,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         imagenet_classes = LoadClasses();
-        LoadTorchModule("mobilenetv2_new_version.ptl");
+        LoadTorchModule("optimized_mobilenetv2.ptl");
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
             try {
@@ -104,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void analyze(@NonNull ImageProxy image) {
                 int rotation = image.getImageInfo().getRotationDegrees();
-                analyzeImage(image, rotation);
+//                analyzeImage(image, rotation);
                 image.close();
             }
         });
@@ -117,6 +119,7 @@ public class MainActivity extends AppCompatActivity {
 
     void LoadTorchModule(String fileName) {
         File modelFile = new File(this.getExternalFilesDir(null), fileName);
+
         try {
             if (modelFile.exists()) {
                 InputStream inputStream = getAssets().open(fileName);
@@ -129,7 +132,7 @@ public class MainActivity extends AppCompatActivity {
                 inputStream.close();
                 outputStream.close();
             }
-            module = LiteModuleLoader.load(modelFile.getAbsolutePath());
+            module = LiteModuleLoader.load(assetFilePath(this, fileName));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -159,6 +162,30 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    /**
+     * Copies specified asset to the file in /files app directory and returns this file absolute path.
+     *
+     * @return absolute file path
+     */
+    public static String assetFilePath(Context context, String assetName) throws IOException {
+        File file = new File(context.getFilesDir(), assetName);
+        if (file.exists() && file.length() > 0) {
+            return file.getAbsolutePath();
+        }
+
+        try (InputStream is = context.getAssets().open(assetName)) {
+            try (OutputStream os = new FileOutputStream(file)) {
+                byte[] buffer = new byte[4 * 1024];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+            return file.getAbsolutePath();
+        }
     }
 
     List<String> LoadClasses() {
